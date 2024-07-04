@@ -34,9 +34,11 @@ eqICV = 1;
 
 obstacle1.duration  = [3 4];
 obstacle1.width     = [1 -0.5];
-obstacle2.duration  = [12 14];
-obstacle2.width     = [.2 -0.5];
-obstacles = [obstacle1 obstacle2];
+obstacle2.duration  = [12 13];
+obstacle2.width     = [.2 -0.8];
+obstacle3.duration  = [19 20];
+obstacle3.width     = [0.8 -0.1];
+obstacles = [obstacle1 obstacle2 obstacle3];
 [SMTimeVarying, SCVTimeVarying, timeVaryingSteps] = CreateObstacle(obstacles, Period);
 
 showPlots = true;
@@ -54,11 +56,14 @@ D_c = [0 0];
 % MPC Control
 [X, U, Y] = ModelPredictiveControl(A, B, C, D, Np, Period, Ts, Cx, S0, inputMin, inputMax, stateMin, stateMax, SM, ICM, eqICM, SMTimeVarying, SCVTimeVarying, timeVaryingSteps, SCV, ICV, eqICV, showPlots);
 
+% Initialization
+filename = 'MPC_LaneKeeping.gif';
+delayTime = 0.1; % Delay time between frames in seconds
+
 % Plot Road
 figure;
 hold on
 timeVec = 0:Period:Ts;
-plot(timeVec, Y, "DisplayName", "Position")
 plot(timeVec, (Width/2)*ones(size(timeVec)), "r--", "DisplayName", "Boundary")
 plot(timeVec, -(Width/2)*ones(size(timeVec)), "r--", "HandleVisibility", "off")
 plot(timeVec, zeros(size(timeVec)), "b--", "DisplayName", "Center Line")
@@ -67,6 +72,38 @@ legend
 title("Lane Keeping Validation and Obstacle Avoidance at Speed 14.0 m/s")
 xlabel("Time [sec]")
 ylabel("e_y(t) [m]")
+
+% Initialize the plot for Y data
+h = plot(timeVec(1), Y(1), 'DisplayName', 'Position');
+scalingFactor = 8; % Adjust this to make the arrow larger
+q = quiver(timeVec(1), Y(1), 0, 0, 'r', 'MaxHeadSize', 20, 'LineWidth', 2, 'DisplayName', 'Direction');
+
+% Create GIF
+for k = 1:length(timeVec)
+    % Update plot data
+    set(h, 'XData', timeVec(1:k), 'YData', Y(1:k))
+    
+    % Update quiver (arrow) position and direction
+    if k > 1
+        dx = (timeVec(k) - timeVec(k-1)) * scalingFactor;
+        dy = (Y(k) - Y(k-1)) * scalingFactor;
+        set(q, 'XData', timeVec(k-1), 'YData', Y(k-1), 'UData', dx, 'VData', dy)
+    end
+    
+    % Capture the frame
+    drawnow
+    frame = getframe(gcf);
+    im = frame2im(frame);
+    [imind, cm] = rgb2ind(im, 256);
+    
+    % Write to the GIF File
+    if k == 1
+        imwrite(imind, cm, filename, 'gif', 'Loopcount', inf, 'DelayTime', delayTime);
+    else
+        imwrite(imind, cm, filename, 'gif', 'WriteMode', 'append', 'DelayTime', delayTime);
+    end
+end
+
 
 function [constraint_matrix, bounds_vector, time_vector] = CreateObstacle(obstacles, sampling_time)
     constraint_matrix = [];
